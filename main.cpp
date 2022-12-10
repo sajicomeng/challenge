@@ -1,16 +1,12 @@
-//#include <QCoreApplication>
-//#include <qdebug.h>
 #include <stdio.h>
-//#include <netdb.h>
 #include "Winsock2.h"
 #include <ws2tcpip.h>
-//#include <netinet/in.h>
 #include <stdlib.h>
 #include <string.h>
-//#include <sys/socket.h>
 #include <sys/types.h>
 #include <unistd.h>
 #include "database.h"
+#include "print_thread.h"
 #include <time.h>
 
 #define bzero(b,len) (memset((b), '\0', (len)), (void) 0)
@@ -43,7 +39,9 @@ char* getCurrentTime(){
 
     time ( &rawtime );
     timeinfo = localtime ( &rawtime );
-    return asctime(timeinfo);
+    char * res = asctime(timeinfo);
+    removeCharcter(res, '\n');
+    return res;
 }
 
 bool getStringFromMessage(const char* message,
@@ -201,8 +199,11 @@ int main(int argc, char *argv[])
     if (!readConf()){
         printf("cannot find config file!\n");
     };
-
+    if (!startThread()){
+        printf("cannot start print thread!");
+    }
     int sockId = prepareSock();
     receiveFromSocket(sockId);
+    stopThread();
     close(sockId);
 }
