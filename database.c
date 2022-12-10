@@ -33,4 +33,17 @@ int insertInteger(int value, char* date){
     return res;
 }
 
+int insertString(char* value, char* date){
+    int res = 0;
+    sqlite3_stmt* query;
+    if (sqlite3_prepare_v2(db, INSERT_INTEGER_VALUE_QUERY, -1, &query, 0) == SQLITE_OK){
+        sqlite3_bind_text(query, 1, value,  strlen(value), 0);
+        sqlite3_bind_text(query, 2, date, strlen(date), 0);
+        if (sqlite3_step(query) == SQLITE_DONE)
+            res = 1;
+    }
+    sqlite3_finalize(query);
+    return res;
+}
+
 

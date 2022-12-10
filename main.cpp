@@ -1,14 +1,19 @@
-#include <QCoreApplication>
-#include <qdebug.h>
+//#include <QCoreApplication>
+//#include <qdebug.h>
 #include <stdio.h>
-#include <netdb.h>
-#include <netinet/in.h>
+//#include <netdb.h>
+#include "Winsock2.h"
+#include <ws2tcpip.h>
+//#include <netinet/in.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/socket.h>
+//#include <sys/socket.h>
 #include <sys/types.h>
 #include <unistd.h>
 #include "database.h"
+#include <time.h>
+
+#define bzero(b,len) (memset((b), '\0', (len)), (void) 0)
 
 #define MAX 80
 #define SA struct sockaddr
@@ -64,7 +69,7 @@ bool getStringFromMessage(const char* message,
 
 bool readConf(){
     FILE    *textfile;
-     char    line[MAX_LINE_LENGTH];
+    char    line[MAX_LINE_LENGTH];
     textfile = fopen("config.ini", "r");
     if(textfile == NULL)
         return false;
@@ -94,8 +99,12 @@ void checkMessageType(char* message){
     if (getStringFromMessage(message, P1_HEADER, value, MAX, false)){
         int num = atoi(value);
         if (num){
-            printf("int message : %d\n", num);
-            insertInteger(num, getCurrentTime());
+            if (insertInteger(num, getCurrentTime())){
+                printf("int message successfully add to DB --> %d\n", num);
+            }
+            else {
+                printf("cannot add int message to DB --> %d\n", num);
+            }
         }
         else{
             printf("the message is not a valid number --> %s\n", value);
@@ -103,7 +112,12 @@ void checkMessageType(char* message){
     }
     bzero(value, MAX);
     if (getStringFromMessage(message, P2_HEADER, value, MAX, false)){
-        printf("string message : %s\n", value);
+        if (insertString(value, getCurrentTime())){
+            printf("string message successfully add to DB --> %s\n", value);
+        }
+        else {
+            printf("cannot add string message to DB --> %s\n", value);
+        }
     }
 }
 
@@ -114,8 +128,9 @@ void receiveFromSocket(int sockID)
     // infinite loop for chat
     for (;;) {
         bzero(buff, MAX);
-        int size = read(sockID, buff, sizeof(buff));
-        checkMessageType(buff);
+        int size = recv(sockID, buff, sizeof(buff), 0);
+        if (size > 0)
+            checkMessageType(buff);
 
     }
 }
@@ -125,47 +140,52 @@ int prepareSock(){
     struct sockaddr cli;
     struct sockaddr_in servaddr;
 
-    // socket create and verification
-    sockfd = socket(AF_INET, SOCK_STREAM, 0);
-    if (sockfd == -1) {
-        printf("socket creation failed...\n");
-        exit(0);
-    }
-    else
-        printf("Socket successfully created..\n");
-    bzero(&servaddr, sizeof(servaddr));
+    WSADATA wsaData;
 
-    // assign IP, PORT
-    servaddr.sin_family = AF_INET;
-    servaddr.sin_addr.s_addr = htonl(INADDR_ANY);
-    servaddr.sin_port = htons(PORT_NUM);
+   if(WSAStartup(0x202, &wsaData) == 0)
+   {
+        sockfd = socket(AF_INET, SOCK_STREAM, 0);
+        if (sockfd == -1) {
+            printf("socket creation failed...\n");
+            exit(0);
+        }
+        else
+            printf("Socket successfully created..\n");
+        bzero(&servaddr, sizeof(servaddr));
 
-    // Binding newly created socket to given IP and verification
-    if ((bind(sockfd, (SA*)&servaddr, sizeof(servaddr))) != 0) {
-        printf("socket bind failed...\n");
-        exit(0);
-    }
-    else
-        printf("Socket successfully binded..\n");
+        // assign IP, PORT
+        servaddr.sin_family = AF_INET;
+        servaddr.sin_addr.s_addr = htonl(INADDR_ANY);
+        servaddr.sin_port = htons(PORT_NUM);
 
-    // Now server is ready to listen and verification
-    if ((listen(sockfd, 5)) != 0) {
-        printf("Listen failed...\n");
-        exit(0);
-    }
-    else
-        printf("Server listening..\n");
-    socklen_t len = sizeof(cli);
+        // Binding newly created socket to given IP and verification
+        if ((bind(sockfd, (SA*)&servaddr, sizeof(servaddr))) != 0) {
+            printf("socket bind failed...\n");
+            exit(0);
+        }
+        else
+            printf("Socket successfully binded..\n");
 
-    // Accept the data packet from client and verification
-    connfd = accept(sockfd, &cli, &len);
-    if (connfd < 0) {
-        printf("server accept failed...\n");
-        exit(0);
-    }
-    else
-        printf("server accept the client...\n");
-    return connfd;
+        // Now server is ready to listen and verification
+        if ((listen(sockfd, 5)) != 0) {
+            printf("Listen failed...\n");
+            exit(0);
+        }
+        else
+            printf("Server listening..\n");
+        socklen_t len = sizeof(cli);
+
+        // Accept the data packet from client and verification
+        connfd = accept(sockfd, &cli, &len);
+        if (connfd < 0) {
+            printf("server accept failed...\n");
+            exit(0);
+        }
+        else
+            printf("server accept the client...\n");
+        return connfd;
+   }
+   return -1;
 }
 
 int main(int argc, char *argv[])

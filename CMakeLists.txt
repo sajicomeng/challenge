@@ -7,7 +7,7 @@ set(CMAKE_AUTOMOC ON)
 
 SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pthread")
 
-find_package(Qt5Core)
+#find_package(Qt5Core)
 
 set(TARGET_H
     sqlite3.h
@@ -21,5 +21,11 @@ set (SOURCES
 
 add_executable(${PROJECT_NAME} ${SOURCES})
 
-target_link_libraries(${PROJECT_NAME} Qt5::Core ${CMAKE_DL_LIBS})
+if(WIN32)
+    target_link_libraries(${PROJECT_NAME} wsock32 ws2_32)
+else()
+    target_link_libraries(${PROJECT_NAME} ${CMAKE_DL_LIBS})
+endif()
+
+
 
